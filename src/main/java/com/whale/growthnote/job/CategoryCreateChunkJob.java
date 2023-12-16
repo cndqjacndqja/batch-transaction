@@ -1,10 +1,7 @@
 package com.whale.growthnote.job;
 
 import com.whale.growthnote.domain.category.entity.Category;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import com.whale.growthnote.domain.category.repository.CategoryRepository;
 import javax.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,29 +12,32 @@ import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "spring.batch.job.names", havingValue = "CategoryCreateChunkJob")
+@ConditionalOnProperty(name = "spring.batch.job.names", havingValue = "categoryCreateChunkJobValue")
 public class CategoryCreateChunkJob {
 
 	private final JobBuilderFactory jobBuilderFactory;
 	private final StepBuilderFactory stepBuilderFactory;
-	private final EntityManagerFactory entityManagerFactory;
+
+	private final PlatformTransactionManager platformTransactionManager;
+	private final CategoryRepository categoryRepository;
 
 	@Bean
-	public Job job() {
-		return jobBuilderFactory.get("categoryChunkJob")
-			.incrementer(new RunIdIncrementer())
+	public Job categoryCreateChunkJobValue() {
+		return jobBuilderFactory.get("categoryCreateChunkJobValue")
 			.start(categoryCreateChunkStep())
+			.incrementer(new RunIdIncrementer())
 			.build();
 	}
 
@@ -45,18 +45,9 @@ public class CategoryCreateChunkJob {
 	public Step categoryCreateChunkStep() {
 		return stepBuilderFactory.get("categoryCreateChunkStep")
 			.<Category, Category>chunk(50)
-			.reader(categoryCreateChunkReader())
+			.reader(new CategoryCreateChunkItemReader(categoryRepository, 0L))
 			.writer(categoryCreateChunkWriter())
-			.build();
-	}
-
-	@Bean
-	public JpaPagingItemReader<Category> categoryCreateChunkReader() {
-		return new JpaPagingItemReaderBuilder<Category>()
-			.name("jpaPagingItemReader")
-			.entityManagerFactory(entityManagerFactory)
-			.pageSize(50)
-			.queryString("SELECT p FROM Category p")
+			.transactionManager(platformTransactionManager)
 			.build();
 	}
 

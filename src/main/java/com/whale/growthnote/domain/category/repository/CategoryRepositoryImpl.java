@@ -22,4 +22,15 @@ public class CategoryRepositoryImpl implements CategoryRepositoryCustom {
                 .where(category.name.contains(name))
                 .fetch();
     }
+
+    @Override
+    public List<Category> findByCursorIdAndSize(Long cursorId, int size) {
+        return queryFactory.selectFrom(category)
+            .where(
+                category.id.gt(cursorId)
+            )
+            .orderBy(category.id.asc())
+            .limit(size)
+            .fetch();
+    }
 }
